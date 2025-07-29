@@ -1,0 +1,300 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "df27691d-564e-4207-8d9f-26a239f7a410",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3a21db35-9973-472a-93f9-b8a2ba3175f2",
+      "name": "Webhook",
+      "webhookId": "df27691d-564e-4207-8d9f-26a239f7a410"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fb60c269-8e2f-4ba7-a278-4a0f7e8eb598",
+              "leftValue": "={{ $json.body.conversationHistory }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "71fe1f4b-bb7e-4cd1-be2a-4e3988a172e7",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "876f5f51-40d9-4f78-a820-f89e319389ec",
+              "name": "prompt",
+              "value": "=You are an expert technical recruiter named 'Alex'. You are conducting an interview for the position of '{{ $json.body.jobTitle }}'. Your task is to conduct a professional interview based *only* on the provided resume and job description.\n\nHere is the job description:\n\"\"\"\n{{ $json.body.jobDescription }}\n\"\"\"\n\nHere is the candidate's resume text:\n\"\"\"\n{{ $json.body.resumeText }}\n\"\"\"\n\nAsk the single, most impactful opening question. Ask only one question. Do not add any conversational filler.\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        -96
+      ],
+      "id": "6bc9a581-195d-46dc-88b4-b2721d088cc2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6de8f022-862c-4630-8a0f-bbddbe9681b3",
+              "name": "prompt",
+              "value": "=You are an expert technical recruiter named 'Alex', continuing an interview for '{{ $json.body.jobTitle }}'. The conversation history is below. Ask the next logical follow-up question based on the user's last answer. Do not repeat questions. Ask only one question.  CONVERSATION HISTORY: {{ $json.body.conversationHistory }}AI: {{ $json.body.lastQuestion }} User: {{ $json.body.answer }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        96
+      ],
+      "id": "f5ed22be-16b7-4bdc-b6c4-1310521110fa",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        688,
+        -48
+      ],
+      "id": "8ed1f967-bc1a-4c47-bca9-bf3750d68dea",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        912,
+        -48
+      ],
+      "id": "79c3c250-b974-4094-af8c-a8c472071c8c",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        928,
+        112
+      ],
+      "id": "874576cc-a94c-491f-a398-55821de46c6d",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "a3qmkEPuRAKXTstM",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6599f767-1863-47df-b4b3-3a3d4999a287",
+              "name": "newQuestion",
+              "value": "={{ $('Basic LLM Chain').item.json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "b6955598-7a22-4e67-ad57-b4c000872d74",
+              "name": "updatedHistory",
+              "value": "={{ $('Webhook').item.json.body.conversationHistory || '' }}AI: {{ $json.newQuestion }}\\nUser:",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1264,
+        -48
+      ],
+      "id": "70021fa4-0326-4ee6-a5bf-518e6ecb030d",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({\n  \"question\": $json.newQuestion,\n  \"conversationHistory\": $json.updatedHistory\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1472,
+        -48
+      ],
+      "id": "29bf80c7-84d2-40de-a56f-ddf82b659273",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5bd5a1ea-16de-44d0-937b-587bbce5523a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e37465823f6ec6359565a2d8959871ac9f31984acb057f2daf8d42b2a65baea0"
+  },
+  "id": "8N6ckeC2TziirGLt",
+  "tags": []
+}
